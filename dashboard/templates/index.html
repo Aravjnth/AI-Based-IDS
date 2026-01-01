@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CORTEX | Advanced Threat Operations</title>
+    <!-- Fonts -->
+    <link
+        href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Rajdhani:wght@500;600;700&display=swap"
+        rel="stylesheet">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --bg-dark: #020204;
+            --panel-bg: rgba(10, 11, 16, 0.7);
+            --border-color: rgba(0, 242, 234, 0.15);
+            --primary: #00f2ea;
+            --primary-dim: rgba(0, 242, 234, 0.1);
+            --danger: #ff2a6d;
+            --danger-dim: rgba(255, 42, 109, 0.1);
+            --safe: #05d5fa;
+            --warning: #f7d51d;
+            --text-main: #e0e6ed;
+            --text-muted: #6b7d8c;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            font-family: 'Rajdhani', sans-serif;
+            height: 100vh;
+            overflow: hidden;
+            background-image:
+                radial-gradient(circle at 15% 50%, rgba(0, 242, 234, 0.05) 0%, transparent 25%),
+                radial-gradient(circle at 85% 30%, rgba(255, 42, 109, 0.05) 0%, transparent 25%);
+        }
+
+        /* Scanline Overlay */
+        body::after {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: repeating-linear-gradient(0deg,
+                    transparent 0px,
+                    transparent 1px,
+                    rgba(0, 242, 234, 0.02) 2px,
+                    rgba(0, 242, 234, 0.02) 3px);
+            pointer-events: none;
+            z-index: 999;
+        }
+
+        /* GRID LAYOUT */
+        .grid-container {
+            display: grid;
+            grid-template-columns: 280px 1fr 340px;
+            grid-template-rows: 70px 1fr 250px;
+            height: 100vh;
+            gap: 10px;
+            padding: 10px;
+        }
+
+        /* HEADERS */
+        .header {
+            grid-column: 1 / -1;
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 2rem;
+            backdrop-filter: blur(10px);
+            clip-path: polygon(0 0, 100% 0, 100% 80%, 99% 100%, 0 100%);
+        }
+
+        .logo {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: var(--text-main);
+            text-transform: uppercase;
+            letter-spacing: 4px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .logo-icon {
+            width: 24px;
+            height: 24px;
+            background: var(--primary);
+            box-shadow: 0 0 15px var(--primary);
+            clip-path: polygon(50% 0%, 100% 50%, 50% 100%, 0% 50%);
+            animation: spin 6s linear infinite;
+        }
+
+        .status-badge {
+            background: var(--primary-dim);
+            border: 1px solid var(--primary);
+            color: var(--primary);
+            padding: 5px 15px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            letter-spacing: 2px;
+            border-radius: 2px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background: var(--primary);
+            border-radius: 50%;
+            box-shadow: 0 0 10px var(--primary);
+            animation: pulse 1s infinite alternate;
+        }
+
+        /* SIDEBAR (Stats) */
+        .sidebar {
+            grid-row: 2 / -1;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .card {
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            padding: 1.5rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 4px;
+            height: 100%;
+            background: var(--border-color);
+        }
+
+        .card-title {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 0.5rem;
+        }
+
+        .card-value {
+            font-size: 2.5rem;
+            font-weight: 700;
+            font-family: 'JetBrains Mono', monospace;
+            color: var(--text-main);
+            text-shadow: 0 0 20px rgba(255, 255, 255, 0.1);
+        }
+
+        .card.danger .card-value {
+            color: var(--danger);
+            text-shadow: 0 0 15px var(--danger);
+        }
+
+        .card.danger::before {
+            background: var(--danger);
+        }
+
+        .card.info .card-value {
+            color: var(--primary);
+            text-shadow: 0 0 15px var(--primary);
+        }
+
+        .card.info::before {
+            background: var(--primary);
+        }
+
+        /* MAIN FEED */
+        .main-feed {
+            grid-column: 2;
+            grid-row: 2 / 3;
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            position: relative;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .panel-header {
+            padding: 10px 20px;
+            background: rgba(0, 242, 234, 0.05);
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+            color: var(--primary);
+        }
+
+        /* TABLE */
+        .table-container {
+            flex: 1;
+            overflow-y: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.9rem;
+        }
+
+        thead {
+            position: sticky;
+            top: 0;
+            background: #050608;
+            z-index: 10;
+        }
+
+        th {
+            text-align: left;
+            padding: 12px 20px;
+            color: var(--text-muted);
+            font-weight: 400;
+            font-size: 0.8rem;
+            border-bottom: 2px solid var(--border-color);
+        }
+
+        td {
+            padding: 12px 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            color: var(--text-main);
+            transition: all 0.2s;
+        }
+
+        tr:hover td {
+            background: rgba(0, 242, 234, 0.05);
+            color: var(--primary);
+        }
+
+        /* New Entry Animation */
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateX(-20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateX(0);
+            }
+        }
+
+        tr {
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        /* Trust Button */
+        .btn-trust {
+            background: transparent;
+            border: 1px solid var(--primary);
+            color: var(--primary);
+            padding: 5px 15px;
+            cursor: pointer;
+            font-family: 'Rajdhani', sans-serif;
+            font-weight: 700;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            transition: all 0.3s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn-trust:hover {
+            background: var(--primary);
+            color: #000;
+            box-shadow: 0 0 15px var(--primary);
+        }
+
+        /* BOTTOM CHART */
+        .chart-panel {
+            grid-column: 2 / 4;
+            grid-row: 3;
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            padding: 10px;
+            position: relative;
+        }
+
+        /* RIGHT PANEL (Log/Details) */
+        /* RIGHT PANEL (Log/Details) */
+        .details-panel {
+            grid-column: 3;
+            grid-row: 2;
+            background: var(--panel-bg);
+            border: 1px solid var(--border-color);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            padding: 0;
+            /* Remove default padding for tabs */
+            color: var(--text-muted);
+            /* base color */
+        }
+
+        .tab-header {
+            display: flex;
+            border-bottom: 1px solid var(--border-color);
+            background: rgba(255, 255, 255, 0.02);
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 10px;
+            color: var(--text-muted);
+            cursor: pointer;
+            text-align: center;
+            font-size: 0.8rem;
+            font-weight: 600;
+            font-family: 'JetBrains Mono', monospace;
+            border: none;
+            background: transparent;
+            transition: all 0.2s;
+        }
+
+        .tab-btn.active {
+            color: var(--primary);
+            border-bottom: 2px solid var(--primary);
+            background: rgba(0, 242, 234, 0.05);
+        }
+
+        .tab-content {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            display: none;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        .log-line {
+            margin-bottom: 8px;
+            border-left: 2px solid var(--text-muted);
+            padding-left: 10px;
+        }
+
+        .log-line.alert {
+            border-color: var(--danger);
+            color: var(--danger);
+        }
+
+        .log-line.info {
+            border-color: var(--primary);
+            color: var(--text-main);
+        }
+
+        /* SCROLL BARS */
+        ::-webkit-scrollbar {
+            width: 5px;
+            height: 5px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: #000;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--border-color);
+        }
+
+        /* ANIMATIONS */
+        @keyframes spin {
+            100% {
+                transform: rotate(360deg);
+            }
+        }
+
+        @keyframes pulse {
+            0% {
+                opacity: 0.5;
+            }
+
+            100% {
+                opacity: 1;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="grid-container">
+
+        <!-- HEADER -->
+        <header class="header">
+            <div class="logo">
+                <div class="logo-icon"></div>
+                CORTEX <span style="font-weight: 300; opacity: 0.7;">IDS V2.0</span>
+            </div>
+            <div class="status-badge">
+                <div class="status-dot"></div>
+                SYSTEM ONLINE
+            </div>
+        </header>
+
+        <!-- SIDEBAR STATS -->
+        <div class="sidebar">
+            <div class="card danger">
+                <div class="card-title">Threats Detected</div>
+                <div class="card-value" id="total-attacks">0</div>
+                <div style="font-size: 0.8rem; color: var(--danger); margin-top:5px;">● Live Tracking</div>
+            </div>
+
+            <div class="card info">
+                <div class="card-title">Blocked Entities</div>
+                <div class="card-value" id="blocked-count">0</div>
+                <div style="font-size: 0.8rem; color: var(--primary); margin-top:5px;">● Active Defense</div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">Network Load</div>
+                <div class="card-value">
+                    <span id="pps">12</span> <span style="font-size: 1rem; color: #555;">pkts/sec</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- MAIN TABLE -->
+        <div class="main-feed">
+            <div class="panel-header">
+                <span>INCOMING TRAFFIC ANALYSIS</span>
+                <span id="clock">00:00:00</span>
+            </div>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>TIMESTAMP</th>
+                            <th>SOURCE ADDR</th>
+                            <th>TARGET ADDR</th>
+                            <th>PROTOCOL</th>
+                            <th>THREAT LEVEL</th>
+                            <th>ACTION</th>
+                        </tr>
+                    </thead>
+                    <tbody id="log-body">
+                        <!-- JS INJECTED -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- RIGHT LOG -->
+        <div class="details-panel">
+            <!-- TABS -->
+            <div class="tab-header">
+                <button class="tab-btn active" onclick="showTab('logs')">SYSTEM LOGS</button>
+                <button class="tab-btn" onclick="showTab('whitelist')">WHITELIST</button>
+            </div>
+
+            <!-- LOGS CONTENT -->
+            <div id="tab-logs" class="tab-content active">
+                <div id="sys-logs">
+                    <div class="log-line info">[INIT] System components loaded.</div>
+                    <div class="log-line info">[NET] Interface sniffing active.</div>
+                    <div class="log-line info">[AI] Random Forest Model loaded.</div>
+                </div>
+            </div>
+
+            <!-- WHITELIST CONTENT -->
+            <div id="tab-whitelist" class="tab-content">
+                <div style="margin-bottom: 10px; font-size: 0.7rem; color: #555;">PROTECTED ASSETS</div>
+                <div id="whitelist-list">
+                    <!-- JS Injected -->
+                </div>
+            </div>
+        </div>
+
+        <!-- CHART -->
+        <div class="chart-panel">
+            <div class="panel-header"
+                style="position: absolute; top:0; left:0; width:100%; background:transparent; border:none; padding: 5px 10px;">
+                ATTACK VECTOR MAGNITUDE
+            </div>
+            <canvas id="trafficChart" style="height: 100%; width: 100%;"></canvas>
+        </div>
+
+    </div>
+
+    <script>
+        // --- CHART SETUP ---
+        const ctx = document.getElementById('trafficChart').getContext('2d');
+        const gradient = ctx.createLinearGradient(0, 0, 0, 400);
+        gradient.addColorStop(0, 'rgba(0, 242, 234, 0.4)');
+        gradient.addColorStop(1, 'rgba(0, 242, 234, 0)');
+
+        const chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: Array(20).fill(''),
+                datasets: [{
+                    label: 'Anomaly Score',
+                    data: Array(20).fill(0),
+                    borderColor: '#00f2ea',
+                    backgroundColor: gradient,
+                    borderWidth: 2,
+                    pointRadius: 0,
+                    tension: 0.4,
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: {
+                    x: { display: false },
+                    y: {
+                        display: true,
+                        grid: { color: 'rgba(255,255,255,0.05)' },
+                        ticks: { color: '#444' }
+                    }
+                },
+                animation: { duration: 0 }
+            }
+        });
+
+        // --- CLOCK ---
+        setInterval(() => {
+            const now = new Date();
+            document.getElementById('clock').innerText = now.toLocaleTimeString();
+        }, 1000);
+
+        // --- LOG LOGIC ---
+        function addLog(msg, type = 'info') {
+            const container = document.getElementById('sys-logs');
+            const div = document.createElement('div');
+            div.className = `log-line ${type}`;
+            div.innerText = `[${new Date().toLocaleTimeString()}] ${msg}`;
+            container.prepend(div);
+            if (container.children.length > 10) container.lastChild.remove();
+        }
+
+        // --- TABS & WHITELIST ---
+        function showTab(tab) {
+            // UI Toggle
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+
+            event.target.classList.add('active');
+            document.getElementById('tab-' + tab).classList.add('active');
+
+            if (tab === 'whitelist') {
+                fetchWhitelist();
+            }
+        }
+
+        async function fetchWhitelist() {
+            try {
+                const res = await fetch('/api/whitelist');
+                const data = await res.json();
+                const container = document.getElementById('whitelist-list');
+                container.innerHTML = '';
+
+                data.forEach(item => {
+                    const div = document.createElement('div');
+                    div.style.padding = "8px 0";
+                    div.style.borderBottom = "1px solid rgba(255,255,255,0.05)";
+                    div.innerHTML = `
+                        <div style="color:var(--safe); font-weight:700;">${item.ip}</div>
+                        <div style="color:var(--text-muted); font-size:0.7rem;">${item.description || "Manual Entry"}</div>
+                    `;
+                    container.appendChild(div);
+                });
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        // --- API & ACTIONS ---
+        async function trustIP(ip) {
+            try {
+                const btn = document.getElementById('btn-' + ip.replace(/[^0-9]/g, ''));
+                if (btn) {
+                    btn.innerHTML = 'TRUSTING...';
+                    btn.style.opacity = 0.7;
+                }
+
+                await fetch('/api/whitelist', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ip: ip })
+                });
+
+                addLog(`Manually whitelisted IP: ${ip}`, 'info');
+
+                if (btn) {
+                    btn.innerText = 'TRUSTED';
+                    btn.style.background = 'transparent';
+                    btn.style.color = '#555';
+                    btn.style.border = '1px solid #333';
+                    btn.disabled = true;
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        let lastCount = 0;
+
+        async function fetchStats() {
+            try {
+                const response = await fetch('/api/stats');
+                const data = await response.json();
+
+                // Update Stats
+                const diff = data.total_detections_all_time - lastCount;
+                if (diff > 0) {
+                    addLog(`Detected ${diff} new anomalous packets.`, 'alert');
+                    // Flash effect
+                    document.body.style.boxShadow = "inset 0 0 50px rgba(255, 42, 109, 0.3)";
+                    setTimeout(() => document.body.style.boxShadow = "none", 500);
+                }
+                lastCount = data.total_detections_all_time;
+
+                document.getElementById('total-attacks').innerText = data.total_detections_all_time;
+                document.getElementById('blocked-count').innerText = data.blocked_count;
+                // Simulating PPS (Packets Per Second) variation
+                document.getElementById('pps').innerText = Math.floor(Math.random() * 20 + 5) + (diff * 5);
+
+                const tbody = document.getElementById('log-body');
+                tbody.innerHTML = ''; // Clear
+
+                data.recent_attacks.forEach(row => {
+                    const btnId = 'btn-' + row.src_ip.replace(/[^0-9]/g, '');
+                    const tr = document.createElement('tr');
+
+                    // Style determination
+                    let threatHtml = `<span style="color:var(--danger); font-weight:700;">CRITICAL</span>`;
+                    if (row.status.includes("Safe")) threatHtml = `<span style="color:var(--safe);">MITIGATED</span>`;
+
+                    tr.innerHTML = `
+                        <td style="color:var(--text-muted);">${row.timestamp}</td>
+                        <td style="color:var(--primary); font-weight:700;">${row.src_ip}</td>
+                        <td>${row.dst_ip}</td>
+                        <td>${row.protocol}</td>
+                        <td>${threatHtml}</td>
+                        <td>
+                            <button id="${btnId}" class="btn-trust" onclick="trustIP('${row.src_ip}')">
+                                TRUST
+                            </button>
+                        </td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+
+                // Chart Update
+                if (data.chart_data && data.chart_data.length > 0) {
+                    const labels = data.chart_data.map(d => d.time);
+                    const counts = data.chart_data.map(d => d.count);
+
+                    chart.data.labels = labels;
+                    chart.data.datasets[0].data = counts;
+                    chart.update();
+                } else {
+                    // Fallback simulation
+                    const qSize = data.recent_attacks.length;
+                    const newData = chart.data.datasets[0].data;
+                    newData.shift();
+                    newData.push(qSize + (Math.random() * 5));
+                    chart.update();
+                }
+
+            } catch (err) {
+                console.error("Fetch error:", err);
+            }
+        }
+
+        setInterval(fetchStats, 1000); // Faster polling for "Real Time" feel
+        fetchStats();
+    </script>
+</body>
+
+</html>

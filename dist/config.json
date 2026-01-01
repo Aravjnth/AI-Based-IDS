@@ -1,0 +1,21 @@
+{
+    "enable_firewall_black": false,
+    "enable_desktop_notifications": true,
+    "whitelist": [
+        "8.8.8.8",
+        "8.8.4.4",
+        "1.1.1.1",
+        "192.168.1.1",
+        "127.0.0.1",
+        "142.250.0.0/16",
+        "142.251.0.0/16",
+        "216.239.0.0/16",
+        "216.198.79.1"
+    ],
+    "cloud_config": {
+        "dashboard_url": "http://127.0.0.1:5000",
+        "agent_id": "CLIENT-001-ALPHA",
+        "api_key": "secret-key-123"
+    },
+    "interfaces": null
+}
