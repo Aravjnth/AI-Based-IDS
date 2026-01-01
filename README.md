@@ -55,4 +55,4 @@ Edit `config.json` to customize your defense:
 - **Frontend**: HTML5 + Vanilla JS + Chart.js
 
 ## 📜 License
-MIT License. Built for the Cyber Intern Project.
+MIT License. Built for the Shentinelix Sphere.
