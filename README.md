@@ -25,7 +25,7 @@ Simply download the latest release and extract the zip file.
 Requirements: Python 3.10+, Npcap (for Scapy)
 
 ```bash
-git clone https://github.com/yourusername/cortex-ids.git
+git clone https://github.com/Aravjnth/cortex-ids.git
 cd cortex-ids
 pip install -r requirements.txt
 python real_time_ids.py
